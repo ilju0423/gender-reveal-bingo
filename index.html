@@ -59,6 +59,28 @@
 </div>
 
 <script>
+// Google Analytics 4: replace this value with your own Measurement ID.
+const GA_MEASUREMENT_ID = 'G-SES4FZJZTY';
+const analyticsEnabled = /^G-[A-Z0-9]+$/.test(GA_MEASUREMENT_ID)
+  && GA_MEASUREMENT_ID !== 'G-XXXXXXXXXX'
+  && location.hostname === 'ilju0423.github.io';
+
+function initAnalytics(){
+  if(!analyticsEnabled) return;
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ dataLayer.push(arguments); };
+  gtag('js', new Date());
+  gtag('config', GA_MEASUREMENT_ID, {anonymize_ip:true});
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_MEASUREMENT_ID)}`;
+  document.head.appendChild(script);
+}
+
+function trackEvent(name, params={}){
+  if(analyticsEnabled && typeof window.gtag === 'function') gtag('event', name, params);
+}
+
 const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const revealEl = document.getElementById('reveal');
@@ -67,6 +89,7 @@ let opened = Array(9).fill(false);
 let finished = false;
 let tiles = [];
 let winningLine = [];
+let gameStarted = false;
 const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
 function makeBoard(){
@@ -127,12 +150,18 @@ function render(){
 
 function openCell(i){
   if(finished || opened[i]) return;
+  if(!gameStarted){
+    gameStarted=true;
+    trackEvent('game_start');
+  }
   opened[i]=true;
+  trackEvent('tile_open', {tile_number:i+1, tile_result:tiles[i], opened_count:opened.filter(Boolean).length});
   render();
   if(winningLine.every(idx=>opened[idx])){
     finished=true;
     [...boardEl.children].forEach((el,idx)=>{if(winningLine.includes(idx))el.classList.add('win')});
     statusEl.textContent='BOY BINGO!';
+    trackEvent('game_complete', {result:'boy', opened_count:opened.filter(Boolean).length});
     setTimeout(()=>showReveal(),350);
   } else {
     const n=opened.filter(Boolean).length;
@@ -147,14 +176,16 @@ function showReveal(){
   confettiBurst(['#5da9ff','#a9d2ff','#ffffff','#d7ebff']);
 }
 
-function reset(){
+function reset(isRestart=false){
+  if(isRestart) trackEvent('game_restart', {previously_started:gameStarted});
   opened=Array(9).fill(false);finished=false;revealEl.classList.remove('show');
+  gameStarted=false;
   makeBoard();
   statusEl.textContent='리본을 하나씩 열어보세요.';
   render();
 }
 
-document.getElementById('resetBtn').addEventListener('click',reset);
+document.getElementById('resetBtn').addEventListener('click',()=>reset(true));
 revealEl.addEventListener('click',()=>{revealEl.classList.remove('show')});
 
 const canvas=document.getElementById('confetti'); const ctx=canvas.getContext('2d');
@@ -172,6 +203,7 @@ function tick(){
   if(pieces.length) anim=requestAnimationFrame(tick); else ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
+initAnalytics();
 reset();
 </script>
 </body>
